@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Preaching Notes & Bible Assistant</title>
+    <title>Preaching Notes</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0056b3">
     <style>
@@ -77,7 +77,7 @@
         .hidden { display: none !important; }
 
         /* --- PREACHING VIEW STYLES --- */
-        .topic-container {
+        details.topic-container {
             background-color: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -86,19 +86,33 @@
             overflow: hidden;
         }
 
-        .topic-header {
+        summary.topic-header {
             background-color: var(--accent);
             color: white;
             padding: 15px;
             font-size: 1.3rem;
             font-weight: bold;
             margin: 0;
+            cursor: pointer;
+            list-style: none; /* Hide default arrow */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        summary.topic-header::-webkit-details-marker { display: none; }
+        summary.topic-header::after {
+            content: '▼';
+            font-size: 0.9rem;
+            transition: transform 0.2s;
+        }
+        details.topic-container[open] summary.topic-header::after {
+            content: '▲';
         }
 
         details.note {
-            border-bottom: 1px solid var(--border);
+            border-top: 1px solid var(--border);
         }
-        details.note:last-child { border-bottom: none; }
 
         summary.note-title {
             font-size: 1.25rem;
@@ -130,7 +144,7 @@
         }
 
         /* --- ADMIN PANEL STYLES --- */
-        .admin-panel, .bible-panel {
+        .admin-panel {
             background-color: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -142,7 +156,7 @@
         .form-group { margin-bottom: 18px; }
         label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.95rem; }
 
-        input[type="text"], select, textarea, input[type="file"] {
+        input[type="text"], select, textarea {
             width: 100%;
             padding: 12px;
             border: 1px solid var(--border);
@@ -154,24 +168,6 @@
         }
 
         textarea { resize: vertical; min-height: 120px; }
-
-        .bible-results-container {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            margin-top: 10px;
-            background: var(--bg-color);
-        }
-        .bible-result-item {
-            padding: 10px;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.95rem;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .bible-result-item:last-child { border-bottom: none; }
 
         .admin-list-item {
             display: flex;
@@ -201,20 +197,6 @@
         <!-- ADMIN VIEW -->
         <div id="admin-section" class="hidden">
             
-            <!-- XML Bible Tool -->
-            <div class="bible-panel">
-                <h3>📖 Offline Bible XML Assistant</h3>
-                <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0;">Upload an XML Bible file once per session to search and insert verses directly into your notes.</p>
-                <div class="form-group">
-                    <input type="file" id="xml-upload" accept=".xml" onchange="loadBibleXML(event)">
-                </div>
-                <div class="form-group hidden" id="bible-search-group">
-                    <input type="text" id="bible-search" placeholder="Search for a keyword (e.g., 'Grace' or 'Moses')...">
-                    <button class="btn btn-success" style="width:100%; margin-top: 10px;" onclick="searchBible()">Search Bible</button>
-                    <div id="bible-results" class="bible-results-container"></div>
-                </div>
-            </div>
-
             <!-- Manage Topics -->
             <div class="admin-panel">
                 <h3>📁 Manage Topics</h3>
@@ -237,8 +219,8 @@
                     <input type="text" id="main-point" placeholder="e.g., 1. The Power of Grace">
                 </div>
                 <div class="form-group">
-                    <label for="sub-points">Detailed Content / Verses</label>
-                    <textarea id="sub-points" placeholder="Type sermon details here. You can insert verses from the Bible tool above!"></textarea>
+                    <label for="sub-points">Detailed Content</label>
+                    <textarea id="sub-points" placeholder="Type sermon details here."></textarea>
                 </div>
                 <button class="btn btn-primary" onclick="addNote()" style="width: 100%;">Save Note</button>
             </div>
@@ -258,7 +240,7 @@
 
         // --- DATA MANAGEMENT ---
         let topicsData = JSON.parse(localStorage.getItem('preaching_topics_data')) || [
-            { id: 1, name: "General Preaching", notes: [{ id: 101, main: "Welcome Note", sub: "Click any main point to expand it. Go to the Admin Panel to create topics and add notes." }] }
+            { id: 1, name: "General Preaching", notes: [{ id: 101, main: "Welcome Note", sub: "Click the main topic to expand it, then click any main point to read the notes. Go to the Admin Panel to create topics and add notes." }] }
         ];
 
         function saveData() {
@@ -334,89 +316,6 @@
             }
         }
 
-        // --- BIBLE XML LOGIC ---
-        let xmlDoc = null;
-
-        function loadBibleXML(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const parser = new DOMParser();
-                xmlDoc = parser.parseFromString(e.target.result, "text/xml");
-                
-                // Check for parsing errors
-                if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
-                    alert("Error parsing XML file. Make sure it is a valid XML document.");
-                } else {
-                    document.getElementById('bible-search-group').classList.remove('hidden');
-                    alert("Bible successfully loaded into memory! You can now search it.");
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        function searchBible() {
-            if (!xmlDoc) return;
-            const query = document.getElementById('bible-search').value.toLowerCase().trim();
-            const resultsDiv = document.getElementById('bible-results');
-            resultsDiv.innerHTML = '';
-
-            if (query.length < 3) {
-                resultsDiv.innerHTML = '<p style="padding:10px;">Please enter at least 3 characters to search.</p>';
-                return;
-            }
-
-            resultsDiv.innerHTML = '<p style="padding:10px;">Searching...</p>';
-            
-            setTimeout(() => {
-                // Get all elements in the XML
-                const allElements = xmlDoc.getElementsByTagName("*");
-                let resultsHTML = '';
-                let matchCount = 0;
-
-                // Loop through to find text nodes containing the query
-                for (let i = 0; i < allElements.length; i++) {
-                    const el = allElements[i];
-                    // Look for elements that only contain text (leaf nodes, usually verses)
-                    if (el.children.length === 0 && el.textContent && el.textContent.toLowerCase().includes(query)) {
-                        
-                        // Extract attributes from parent nodes to try and guess the Book/Chapter
-                        let contextInfo = el.nodeName; 
-                        if (el.parentElement) {
-                            let attrs = Array.from(el.parentElement.attributes).map(a => a.value).join(" ");
-                            if(attrs) contextInfo = attrs;
-                        }
-
-                        const safeText = el.textContent.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-                        
-                        resultsHTML += `
-                            <div class="bible-result-item">
-                                <div><strong>Context:</strong> <span style="color:var(--text-muted); font-size:0.85rem;">${contextInfo}</span></div>
-                                <div>${el.textContent}</div>
-                                <button class="btn btn-small btn-primary" onclick="insertVerse('${safeText}')">Insert into Note</button>
-                            </div>
-                        `;
-                        matchCount++;
-                        if (matchCount >= 30) break; // Limit to 30 results to prevent crashing
-                    }
-                }
-
-                if (matchCount === 0) {
-                    resultsDiv.innerHTML = '<p style="padding:10px;">No verses found matching that text.</p>';
-                } else {
-                    resultsDiv.innerHTML = resultsHTML;
-                }
-            }, 100); // Small timeout to allow UI to update "Searching..." message
-        }
-
-        function insertVerse(text) {
-            const textarea = document.getElementById('sub-points');
-            textarea.value += (textarea.value ? '\n\n' : '') + `"${text}"`;
-            textarea.focus();
-        }
-
         // --- RENDER UI ---
         function renderUI() {
             const preachContainer = document.getElementById('topics-container');
@@ -457,8 +356,8 @@
                     </div>
                 `;
 
-                // 3. Populate Preaching View
-                let topicHTML = `<div class="topic-container"><h2 class="topic-header">${topic.name}</h2>`;
+                // 3. Populate Preaching View (Topics as Drop-downs)
+                let topicHTML = `<details class="topic-container"><summary class="topic-header">${topic.name}</summary><div style="padding-bottom: 10px;">`;
                 
                 if (topic.notes.length === 0) {
                     topicHTML += `<p style="padding: 15px; color: var(--text-muted); margin:0;">No notes in this topic yet.</p>`;
@@ -473,7 +372,7 @@
                     });
                 }
                 
-                topicHTML += `</div>`;
+                topicHTML += `</div></details>`;
                 preachContainer.innerHTML += topicHTML;
             });
         }
