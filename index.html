@@ -6,6 +6,10 @@
     <title>Preaching Notes</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0056b3">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
     <style>
         :root {
             --bg-color: #f4f6f8;
@@ -59,7 +63,7 @@
         h2, h3 { margin-top: 0; }
 
         .btn {
-            padding: 12px 18px; /* Larger touch targets for mobile */
+            padding: 12px 18px; 
             border: none;
             border-radius: 8px;
             cursor: pointer;
@@ -94,7 +98,7 @@
             font-weight: bold;
             margin: 0;
             cursor: pointer;
-            list-style: none; /* Hide default arrow */
+            list-style: none;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -118,13 +122,13 @@
             font-size: 1.25rem;
             font-weight: 600;
             cursor: pointer;
-            padding: 18px 15px; /* Large tap area */
+            padding: 18px 15px;
             list-style: none;
             display: flex;
             align-items: center;
         }
         
-        summary.note-title::-webkit-details-marker { display: none; } /* Hide default arrow */
+        summary.note-title::-webkit-details-marker { display: none; }
         summary.note-title::before {
             content: '▶';
             font-size: 0.9rem;
@@ -179,6 +183,13 @@
             margin-bottom: 10px;
             background: var(--bg-color);
         }
+
+        #loading-indicator {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.1rem;
+            color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
@@ -189,15 +200,13 @@
     </header>
 
     <main>
-        <!-- PREACHING VIEW -->
         <div id="preaching-section">
+            <div id="loading-indicator">Loading your notes securely from the cloud...</div>
             <div id="topics-container"></div>
         </div>
 
-        <!-- ADMIN VIEW -->
         <div id="admin-section" class="hidden">
             
-            <!-- Manage Topics -->
             <div class="admin-panel">
                 <h3>📁 Manage Topics</h3>
                 <div class="form-group" style="display:flex; gap:10px;">
@@ -207,7 +216,6 @@
                 <div id="admin-topics-list"></div>
             </div>
 
-            <!-- Add/Edit Notes -->
             <div class="admin-panel">
                 <h3>📝 Add New Preaching Note</h3>
                 <div class="form-group">
@@ -222,163 +230,4 @@
                     <label for="sub-points">Detailed Content</label>
                     <textarea id="sub-points" placeholder="Type sermon details here."></textarea>
                 </div>
-                <button class="btn btn-primary" onclick="addNote()" style="width: 100%;">Save Note</button>
-            </div>
-            
-        </div>
-    </main>
-
-    <script>
-        // --- OFFLINE SERVICE WORKER ---
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('Offline mode activated!'))
-                    .catch(err => console.error('Offline mode failed: ', err));
-            });
-        }
-
-        // --- DATA MANAGEMENT ---
-        let topicsData = JSON.parse(localStorage.getItem('preaching_topics_data')) || [
-            { id: 1, name: "General Preaching", notes: [{ id: 101, main: "Welcome Note", sub: "Click the main topic to expand it, then click any main point to read the notes. Go to the Admin Panel to create topics and add notes." }] }
-        ];
-
-        function saveData() {
-            localStorage.setItem('preaching_topics_data', JSON.stringify(topicsData));
-            renderUI();
-        }
-
-        // --- VIEW TOGGLE ---
-        function toggleView() {
-            const adminSec = document.getElementById('admin-section');
-            const preachSec = document.getElementById('preaching-section');
-            const btn = document.getElementById('toggle-admin-btn');
-            const title = document.getElementById('view-title');
-
-            if (adminSec.classList.contains('hidden')) {
-                adminSec.classList.remove('hidden');
-                preachSec.classList.add('hidden');
-                btn.innerText = "Back to Preaching";
-                btn.classList.replace('btn-primary', 'btn-success');
-                title.innerText = "Admin Dashboard";
-            } else {
-                adminSec.classList.add('hidden');
-                preachSec.classList.remove('hidden');
-                btn.innerText = "Admin Panel";
-                btn.classList.replace('btn-success', 'btn-primary');
-                title.innerText = "Preaching Mode";
-            }
-        }
-
-        // --- TOPIC LOGIC ---
-        function addTopic() {
-            const input = document.getElementById('new-topic-name');
-            if (!input.value.trim()) return alert("Topic name cannot be empty!");
-            topicsData.push({ id: Date.now(), name: input.value.trim(), notes: [] });
-            input.value = '';
-            saveData();
-        }
-
-        function deleteTopic(topicId) {
-            if (confirm("Are you sure? This will delete the topic and ALL notes inside it!")) {
-                topicsData = topicsData.filter(t => t.id !== topicId);
-                saveData();
-            }
-        }
-
-        // --- NOTE LOGIC ---
-        function addNote() {
-            const topicId = parseInt(document.getElementById('topic-select').value);
-            const mainInput = document.getElementById('main-point');
-            const subInput = document.getElementById('sub-points');
-
-            if (!topicId) return alert("Please create and select a topic first.");
-            if (!mainInput.value.trim() || !subInput.value.trim()) return alert("Fill out both the main point and detailed content.");
-
-            const topicIndex = topicsData.findIndex(t => t.id === topicId);
-            topicsData[topicIndex].notes.push({
-                id: Date.now(),
-                main: mainInput.value.trim(),
-                sub: subInput.value.trim()
-            });
-
-            mainInput.value = '';
-            subInput.value = '';
-            saveData();
-            alert("Note Saved!");
-        }
-
-        function deleteNote(topicId, noteId) {
-            if (confirm("Delete this note?")) {
-                const topicIndex = topicsData.findIndex(t => t.id === topicId);
-                topicsData[topicIndex].notes = topicsData[topicIndex].notes.filter(n => n.id !== noteId);
-                saveData();
-            }
-        }
-
-        // --- RENDER UI ---
-        function renderUI() {
-            const preachContainer = document.getElementById('topics-container');
-            const topicSelect = document.getElementById('topic-select');
-            const adminTopicsList = document.getElementById('admin-topics-list');
-
-            preachContainer.innerHTML = '';
-            topicSelect.innerHTML = '';
-            adminTopicsList.innerHTML = '';
-
-            if (topicsData.length === 0) {
-                preachContainer.innerHTML = '<p style="text-align:center;">No topics found. Create one in the Admin Panel.</p>';
-                return;
-            }
-
-            topicsData.forEach(topic => {
-                // 1. Populate Dropdown in Admin
-                const option = document.createElement('option');
-                option.value = topic.id;
-                option.innerText = topic.name;
-                topicSelect.appendChild(option);
-
-                // 2. Populate Admin Topic Management List
-                let notesListAdmin = topic.notes.map(n => `
-                    <div style="display:flex; justify-content:space-between; font-size:0.9rem; padding:5px 0 5px 20px; border-bottom:1px dashed var(--border);">
-                        <span>- ${n.main}</span>
-                        <button class="btn btn-small btn-danger" onclick="deleteNote(${topic.id}, ${n.id})">Del Note</button>
-                    </div>
-                `).join('');
-
-                adminTopicsList.innerHTML += `
-                    <div class="admin-list-item" style="flex-direction:column; align-items:stretch;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-                            <strong>📁 ${topic.name}</strong>
-                            <button class="btn btn-danger btn-small" onclick="deleteTopic(${topic.id})">Delete Topic</button>
-                        </div>
-                        <div>${notesListAdmin}</div>
-                    </div>
-                `;
-
-                // 3. Populate Preaching View (Topics as Drop-downs)
-                let topicHTML = `<details class="topic-container"><summary class="topic-header">${topic.name}</summary><div style="padding-bottom: 10px;">`;
-                
-                if (topic.notes.length === 0) {
-                    topicHTML += `<p style="padding: 15px; color: var(--text-muted); margin:0;">No notes in this topic yet.</p>`;
-                } else {
-                    topic.notes.forEach(note => {
-                        topicHTML += `
-                            <details class="note">
-                                <summary class="note-title">${note.main}</summary>
-                                <div class="note-content">${note.sub}</div>
-                            </details>
-                        `;
-                    });
-                }
-                
-                topicHTML += `</div></details>`;
-                preachContainer.innerHTML += topicHTML;
-            });
-        }
-
-        // Initialize UI on load
-        renderUI();
-    </script>
-</body>
-</html>
+                <button class="btn
