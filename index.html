@@ -230,4 +230,196 @@
                     <label for="sub-points">Detailed Content</label>
                     <textarea id="sub-points" placeholder="Type sermon details here."></textarea>
                 </div>
-                <button class="btn
+                <button class="btn btn-primary" onclick="addNote()" style="width: 100%;">Save Note</button>
+            </div>
+            
+        </div>
+    </main>
+
+    <script>
+        // --- 1. FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyA7Kn07zGPd6_UeYdRQ5fv-Gi95wnHeY1A",
+            authDomain: "preaching-notes.firebaseapp.com",
+            projectId: "preaching-notes",
+            storageBucket: "preaching-notes.firebasestorage.app",
+            messagingSenderId: "97021545558",
+            appId: "1:97021545558:web:6cdfefc0ccdeafcb147ff7"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Enable powerful Offline Persistence
+        db.enablePersistence().catch(function(err) {
+            console.warn("Offline persistence issue: ", err);
+        });
+
+        // --- 2. PWA SERVICE WORKER (For Offline App Loading) ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .catch(err => console.error('Offline mode failed: ', err));
+            });
+        }
+
+        // --- 3. DATA MANAGEMENT & REAL-TIME SYNC ---
+        let topicsData = [];
+
+        // Listen to the cloud database in real-time
+        db.collection("topics").orderBy("createdAt", "asc").onSnapshot((snapshot) => {
+            topicsData = [];
+            document.getElementById('loading-indicator').style.display = 'none';
+
+            snapshot.forEach((doc) => {
+                let data = doc.data();
+                data.id = doc.id; // Assign Firebase's unique ID to the object
+                topicsData.push(data);
+            });
+            renderUI();
+        });
+
+        // --- 4. VIEW TOGGLE ---
+        function toggleView() {
+            const adminSec = document.getElementById('admin-section');
+            const preachSec = document.getElementById('preaching-section');
+            const btn = document.getElementById('toggle-admin-btn');
+            const title = document.getElementById('view-title');
+
+            if (adminSec.classList.contains('hidden')) {
+                adminSec.classList.remove('hidden');
+                preachSec.classList.add('hidden');
+                btn.innerText = "Back to Preaching";
+                btn.classList.replace('btn-primary', 'btn-success');
+                title.innerText = "Admin Dashboard";
+            } else {
+                adminSec.classList.add('hidden');
+                preachSec.classList.remove('hidden');
+                btn.innerText = "Admin Panel";
+                btn.classList.replace('btn-success', 'btn-primary');
+                title.innerText = "Preaching Mode";
+            }
+        }
+
+        // --- 5. CLOUD LOGIC ---
+        function addTopic() {
+            const input = document.getElementById('new-topic-name');
+            if (!input.value.trim()) return alert("Topic name cannot be empty!");
+            
+            // Send to cloud
+            db.collection("topics").add({
+                name: input.value.trim(),
+                notes: [],
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            input.value = '';
+        }
+
+        function deleteTopic(topicId) {
+            if (confirm("Are you sure? This will delete the topic and ALL notes inside it!")) {
+                db.collection("topics").doc(topicId).delete();
+            }
+        }
+
+        function addNote() {
+            const topicId = document.getElementById('topic-select').value;
+            const mainInput = document.getElementById('main-point');
+            const subInput = document.getElementById('sub-points');
+
+            if (!topicId) return alert("Please create and select a topic first.");
+            if (!mainInput.value.trim() || !subInput.value.trim()) return alert("Fill out both the main point and detailed content.");
+
+            const newNote = {
+                id: Date.now(), // Generate a unique ID for the note
+                main: mainInput.value.trim(),
+                sub: subInput.value.trim()
+            };
+
+            // Send note array update to the specific topic document in the cloud
+            db.collection("topics").doc(topicId).update({
+                notes: firebase.firestore.FieldValue.arrayUnion(newNote)
+            }).then(() => {
+                mainInput.value = '';
+                subInput.value = '';
+                alert("Note securely saved to the cloud!");
+            });
+        }
+
+        function deleteNote(topicId, noteId) {
+            if (confirm("Delete this note?")) {
+                // Find the topic and filter out the deleted note
+                const topic = topicsData.find(t => t.id === topicId);
+                const updatedNotes = topic.notes.filter(n => n.id !== noteId);
+                
+                // Update the cloud document with the new array
+                db.collection("topics").doc(topicId).update({
+                    notes: updatedNotes
+                });
+            }
+        }
+
+        // --- 6. RENDER UI ---
+        function renderUI() {
+            const preachContainer = document.getElementById('topics-container');
+            const topicSelect = document.getElementById('topic-select');
+            const adminTopicsList = document.getElementById('admin-topics-list');
+
+            preachContainer.innerHTML = '';
+            topicSelect.innerHTML = '';
+            adminTopicsList.innerHTML = '';
+
+            if (topicsData.length === 0) {
+                preachContainer.innerHTML = '<p style="text-align:center;">No topics found in the cloud yet. Go to the Admin Panel to create your first one.</p>';
+                return;
+            }
+
+            topicsData.forEach(topic => {
+                // 1. Populate Dropdown in Admin
+                const option = document.createElement('option');
+                option.value = topic.id;
+                option.innerText = topic.name;
+                topicSelect.appendChild(option);
+
+                // 2. Populate Admin Topic Management List
+                let notesListAdmin = topic.notes.map(n => `
+                    <div style="display:flex; justify-content:space-between; font-size:0.9rem; padding:5px 0 5px 20px; border-bottom:1px dashed var(--border);">
+                        <span>- ${n.main}</span>
+                        <button class="btn btn-small btn-danger" onclick="deleteNote('${topic.id}', ${n.id})">Del Note</button>
+                    </div>
+                `).join('');
+
+                adminTopicsList.innerHTML += `
+                    <div class="admin-list-item" style="flex-direction:column; align-items:stretch;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                            <strong>📁 ${topic.name}</strong>
+                            <button class="btn btn-danger btn-small" onclick="deleteTopic('${topic.id}')">Delete Topic</button>
+                        </div>
+                        <div>${notesListAdmin}</div>
+                    </div>
+                `;
+
+                // 3. Populate Preaching View (Topics as Drop-downs)
+                let topicHTML = `<details class="topic-container"><summary class="topic-header">${topic.name}</summary><div style="padding-bottom: 10px;">`;
+                
+                if (!topic.notes || topic.notes.length === 0) {
+                    topicHTML += `<p style="padding: 15px; color: var(--text-muted); margin:0;">No notes in this topic yet.</p>`;
+                } else {
+                    topic.notes.forEach(note => {
+                        topicHTML += `
+                            <details class="note">
+                                <summary class="note-title">${note.main}</summary>
+                                <div class="note-content">${note.sub}</div>
+                            </details>
+                        `;
+                    });
+                }
+                
+                topicHTML += `</div></details>`;
+                preachContainer.innerHTML += topicHTML;
+            });
+        }
+    </script>
+</body>
+</html>
