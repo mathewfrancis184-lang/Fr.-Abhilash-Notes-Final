@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Preaching Notes & Bible Assistant</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0056b3">
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --text-main: #212529;
+            --text-muted: #6c757d;
+            --accent: #0056b3;
+            --accent-hover: #004494;
+            --danger: #dc3545;
+            --success: #28a745;
+            --border: #dee2e6;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #121212;
+                --card-bg: #1e1e1e;
+                --text-main: #e0e0e0;
+                --text-muted: #a0a0a0;
+                --accent: #4da3ff;
+                --accent-hover: #338cf0;
+                --danger: #cf6679;
+                --success: #4ade80;
+                --border: #333333;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 15px;
+        }
+
+        h1 { margin: 0; font-size: 1.4rem; }
+        h2, h3 { margin-top: 0; }
+
+        .btn {
+            padding: 12px 18px; /* Larger touch targets for mobile */
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary { background-color: var(--accent); color: white; }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-small { padding: 8px 12px; font-size: 0.85rem; }
+
+        main { width: 100%; max-width: 800px; }
+        .hidden { display: none !important; }
+
+        /* --- PREACHING VIEW STYLES --- */
+        .topic-container {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .topic-header {
+            background-color: var(--accent);
+            color: white;
+            padding: 15px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        details.note {
+            border-bottom: 1px solid var(--border);
+        }
+        details.note:last-child { border-bottom: none; }
+
+        summary.note-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 18px 15px; /* Large tap area */
+            list-style: none;
+            display: flex;
+            align-items: center;
+        }
+        
+        summary.note-title::-webkit-details-marker { display: none; } /* Hide default arrow */
+        summary.note-title::before {
+            content: '▶';
+            font-size: 0.9rem;
+            margin-right: 12px;
+            color: var(--accent);
+            transition: transform 0.2s;
+        }
+        details.note[open] summary.note-title::before { content: '▼'; }
+        details.note[open] summary.note-title { background-color: rgba(0,0,0,0.03); }
+
+        .note-content {
+            font-size: 1.15rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            padding: 0 15px 20px 40px;
+            color: var(--text-main);
+        }
+
+        /* --- ADMIN PANEL STYLES --- */
+        .admin-panel, .bible-panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.95rem; }
+
+        input[type="text"], select, textarea, input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        textarea { resize: vertical; min-height: 120px; }
+
+        .bible-results-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-top: 10px;
+            background: var(--bg-color);
+        }
+        .bible-result-item {
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.95rem;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .bible-result-item:last-child { border-bottom: none; }
+
+        .admin-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 10px;
+            background: var(--bg-color);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 id="view-title">Preaching Mode</h1>
+        <button id="toggle-admin-btn" class="btn btn-primary" onclick="toggleView()">Admin Panel</button>
+    </header>
+
+    <main>
+        <!-- PREACHING VIEW -->
+        <div id="preaching-section">
+            <div id="topics-container"></div>
+        </div>
+
+        <!-- ADMIN VIEW -->
+        <div id="admin-section" class="hidden">
+            
+            <!-- XML Bible Tool -->
+            <div class="bible-panel">
+                <h3>📖 Offline Bible XML Assistant</h3>
+                <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0;">Upload an XML Bible file once per session to search and insert verses directly into your notes.</p>
+                <div class="form-group">
+                    <input type="file" id="xml-upload" accept=".xml" onchange="loadBibleXML(event)">
+                </div>
+                <div class="form-group hidden" id="bible-search-group">
+                    <input type="text" id="bible-search" placeholder="Search for a keyword (e.g., 'Grace' or 'Moses')...">
+                    <button class="btn btn-success" style="width:100%; margin-top: 10px;" onclick="searchBible()">Search Bible</button>
+                    <div id="bible-results" class="bible-results-container"></div>
+                </div>
+            </div>
+
+            <!-- Manage Topics -->
+            <div class="admin-panel">
+                <h3>📁 Manage Topics</h3>
+                <div class="form-group" style="display:flex; gap:10px;">
+                    <input type="text" id="new-topic-name" placeholder="New Topic Name (e.g., Sunday Mass)">
+                    <button class="btn btn-success" onclick="addTopic()">Add Topic</button>
+                </div>
+                <div id="admin-topics-list"></div>
+            </div>
+
+            <!-- Add/Edit Notes -->
+            <div class="admin-panel">
+                <h3>📝 Add New Preaching Note</h3>
+                <div class="form-group">
+                    <label for="topic-select">Select Topic</label>
+                    <select id="topic-select"></select>
+                </div>
+                <div class="form-group">
+                    <label for="main-point">Main Point / Heading</label>
+                    <input type="text" id="main-point" placeholder="e.g., 1. The Power of Grace">
+                </div>
+                <div class="form-group">
+                    <label for="sub-points">Detailed Content / Verses</label>
+                    <textarea id="sub-points" placeholder="Type sermon details here. You can insert verses from the Bible tool above!"></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="addNote()" style="width: 100%;">Save Note</button>
+            </div>
+            
+        </div>
+    </main>
+
+    <script>
+        // --- OFFLINE SERVICE WORKER ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Offline mode activated!'))
+                    .catch(err => console.error('Offline mode failed: ', err));
+            });
+        }
+
+        // --- DATA MANAGEMENT ---
+        let topicsData = JSON.parse(localStorage.getItem('preaching_topics_data')) || [
+            { id: 1, name: "General Preaching", notes: [{ id: 101, main: "Welcome Note", sub: "Click any main point to expand it. Go to the Admin Panel to create topics and add notes." }] }
+        ];
+
+        function saveData() {
+            localStorage.setItem('preaching_topics_data', JSON.stringify(topicsData));
+            renderUI();
+        }
+
+        // --- VIEW TOGGLE ---
+        function toggleView() {
+            const adminSec = document.getElementById('admin-section');
+            const preachSec = document.getElementById('preaching-section');
+            const btn = document.getElementById('toggle-admin-btn');
+            const title = document.getElementById('view-title');
+
+            if (adminSec.classList.contains('hidden')) {
+                adminSec.classList.remove('hidden');
+                preachSec.classList.add('hidden');
+                btn.innerText = "Back to Preaching";
+                btn.classList.replace('btn-primary', 'btn-success');
+                title.innerText = "Admin Dashboard";
+            } else {
+                adminSec.classList.add('hidden');
+                preachSec.classList.remove('hidden');
+                btn.innerText = "Admin Panel";
+                btn.classList.replace('btn-success', 'btn-primary');
+                title.innerText = "Preaching Mode";
+            }
+        }
+
+        // --- TOPIC LOGIC ---
+        function addTopic() {
+            const input = document.getElementById('new-topic-name');
+            if (!input.value.trim()) return alert("Topic name cannot be empty!");
+            topicsData.push({ id: Date.now(), name: input.value.trim(), notes: [] });
+            input.value = '';
+            saveData();
+        }
+
+        function deleteTopic(topicId) {
+            if (confirm("Are you sure? This will delete the topic and ALL notes inside it!")) {
+                topicsData = topicsData.filter(t => t.id !== topicId);
+                saveData();
+            }
+        }
+
+        // --- NOTE LOGIC ---
+        function addNote() {
+            const topicId = parseInt(document.getElementById('topic-select').value);
+            const mainInput = document.getElementById('main-point');
+            const subInput = document.getElementById('sub-points');
+
+            if (!topicId) return alert("Please create and select a topic first.");
+            if (!mainInput.value.trim() || !subInput.value.trim()) return alert("Fill out both the main point and detailed content.");
+
+            const topicIndex = topicsData.findIndex(t => t.id === topicId);
+            topicsData[topicIndex].notes.push({
+                id: Date.now(),
+                main: mainInput.value.trim(),
+                sub: subInput.value.trim()
+            });
+
+            mainInput.value = '';
+            subInput.value = '';
+            saveData();
+            alert("Note Saved!");
+        }
+
+        function deleteNote(topicId, noteId) {
+            if (confirm("Delete this note?")) {
+                const topicIndex = topicsData.findIndex(t => t.id === topicId);
+                topicsData[topicIndex].notes = topicsData[topicIndex].notes.filter(n => n.id !== noteId);
+                saveData();
+            }
+        }
+
+        // --- BIBLE XML LOGIC ---
+        let xmlDoc = null;
+
+        function loadBibleXML(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const parser = new DOMParser();
+                xmlDoc = parser.parseFromString(e.target.result, "text/xml");
+                
+                // Check for parsing errors
+                if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                    alert("Error parsing XML file. Make sure it is a valid XML document.");
+                } else {
+                    document.getElementById('bible-search-group').classList.remove('hidden');
+                    alert("Bible successfully loaded into memory! You can now search it.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function searchBible() {
+            if (!xmlDoc) return;
+            const query = document.getElementById('bible-search').value.toLowerCase().trim();
+            const resultsDiv = document.getElementById('bible-results');
+            resultsDiv.innerHTML = '';
+
+            if (query.length < 3) {
+                resultsDiv.innerHTML = '<p style="padding:10px;">Please enter at least 3 characters to search.</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p style="padding:10px;">Searching...</p>';
+            
+            setTimeout(() => {
+                // Get all elements in the XML
+                const allElements = xmlDoc.getElementsByTagName("*");
+                let resultsHTML = '';
+                let matchCount = 0;
+
+                // Loop through to find text nodes containing the query
+                for (let i = 0; i < allElements.length; i++) {
+                    const el = allElements[i];
+                    // Look for elements that only contain text (leaf nodes, usually verses)
+                    if (el.children.length === 0 && el.textContent && el.textContent.toLowerCase().includes(query)) {
+                        
+                        // Extract attributes from parent nodes to try and guess the Book/Chapter
+                        let contextInfo = el.nodeName; 
+                        if (el.parentElement) {
+                            let attrs = Array.from(el.parentElement.attributes).map(a => a.value).join(" ");
+                            if(attrs) contextInfo = attrs;
+                        }
+
+                        const safeText = el.textContent.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                        
+                        resultsHTML += `
+                            <div class="bible-result-item">
+                                <div><strong>Context:</strong> <span style="color:var(--text-muted); font-size:0.85rem;">${contextInfo}</span></div>
+                                <div>${el.textContent}</div>
+                                <button class="btn btn-small btn-primary" onclick="insertVerse('${safeText}')">Insert into Note</button>
+                            </div>
+                        `;
+                        matchCount++;
+                        if (matchCount >= 30) break; // Limit to 30 results to prevent crashing
+                    }
+                }
+
+                if (matchCount === 0) {
+                    resultsDiv.innerHTML = '<p style="padding:10px;">No verses found matching that text.</p>';
+                } else {
+                    resultsDiv.innerHTML = resultsHTML;
+                }
+            }, 100); // Small timeout to allow UI to update "Searching..." message
+        }
+
+        function insertVerse(text) {
+            const textarea = document.getElementById('sub-points');
+            textarea.value += (textarea.value ? '\n\n' : '') + `"${text}"`;
+            textarea.focus();
+        }
+
+        // --- RENDER UI ---
+        function renderUI() {
+            const preachContainer = document.getElementById('topics-container');
+            const topicSelect = document.getElementById('topic-select');
+            const adminTopicsList = document.getElementById('admin-topics-list');
+
+            preachContainer.innerHTML = '';
+            topicSelect.innerHTML = '';
+            adminTopicsList.innerHTML = '';
+
+            if (topicsData.length === 0) {
+                preachContainer.innerHTML = '<p style="text-align:center;">No topics found. Create one in the Admin Panel.</p>';
+                return;
+            }
+
+            topicsData.forEach(topic => {
+                // 1. Populate Dropdown in Admin
+                const option = document.createElement('option');
+                option.value = topic.id;
+                option.innerText = topic.name;
+                topicSelect.appendChild(option);
+
+                // 2. Populate Admin Topic Management List
+                let notesListAdmin = topic.notes.map(n => `
+                    <div style="display:flex; justify-content:space-between; font-size:0.9rem; padding:5px 0 5px 20px; border-bottom:1px dashed var(--border);">
+                        <span>- ${n.main}</span>
+                        <button class="btn btn-small btn-danger" onclick="deleteNote(${topic.id}, ${n.id})">Del Note</button>
+                    </div>
+                `).join('');
+
+                adminTopicsList.innerHTML += `
+                    <div class="admin-list-item" style="flex-direction:column; align-items:stretch;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                            <strong>📁 ${topic.name}</strong>
+                            <button class="btn btn-danger btn-small" onclick="deleteTopic(${topic.id})">Delete Topic</button>
+                        </div>
+                        <div>${notesListAdmin}</div>
+                    </div>
+                `;
+
+                // 3. Populate Preaching View
+                let topicHTML = `<div class="topic-container"><h2 class="topic-header">${topic.name}</h2>`;
+                
+                if (topic.notes.length === 0) {
+                    topicHTML += `<p style="padding: 15px; color: var(--text-muted); margin:0;">No notes in this topic yet.</p>`;
+                } else {
+                    topic.notes.forEach(note => {
+                        topicHTML += `
+                            <details class="note">
+                                <summary class="note-title">${note.main}</summary>
+                                <div class="note-content">${note.sub}</div>
+                            </details>
+                        `;
+                    });
+                }
+                
+                topicHTML += `</div>`;
+                preachContainer.innerHTML += topicHTML;
+            });
+        }
+
+        // Initialize UI on load
+        renderUI();
+    </script>
+</body>
+</html>

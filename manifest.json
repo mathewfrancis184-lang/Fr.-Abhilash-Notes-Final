@@ -1,0 +1,9 @@
+{
+  "name": "Preaching Notes Assistant",
+  "short_name": "Preaching",
+  "description": "Offline preaching notes and Bible assistant.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#0056b3"
+}
